@@ -19,29 +19,48 @@
             font-family: 'Noto Nastaliq Urdu', serif;
             background-color: var(--bg-color);
             color: #222;
-            margin: 0;
-            padding: 0;
-            line-height: 1.8;
+            margin: 0; padding: 0; line-height: 1.8;
         }
 
         .header {
             background: linear-gradient(135deg, var(--primary-green), var(--light-green));
-            color: white;
-            text-align: center;
-            padding: 30px 15px 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            border-bottom: 5px solid var(--gold);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
+            color: white; text-align: center; padding: 30px 15px 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); border-bottom: 5px solid var(--gold);
         }
 
-        .header h1 {
-            margin: 0; font-size: 2.3rem; color: var(--gold); text-shadow: 1px 1px 3px black;
-        }
+        .header h1 { margin: 0; font-size: 2.3rem; color: var(--gold); text-shadow: 1px 1px 3px black; }
         .header p { margin: 5px 0 0; font-size: 1.1rem; }
 
-        .container { max-width: 1000px; margin: 30px auto; padding: 0 15px; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
+
+        /* روزانہ آٹو اپڈیٹ ہونے والا باکس */
+        .today-highlight {
+            background: linear-gradient(to right, #ffffff, #f0fff6);
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .today-highlight::before {
+            content: "آج کا دن (پاکستان کے مطابق)";
+            position: absolute;
+            top: 0; right: 0;
+            background: var(--gold);
+            color: var(--primary-green);
+            padding: 3px 15px;
+            font-weight: bold;
+            border-bottom-left-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        .today-date { font-size: 1.8rem; color: var(--primary-green); font-weight: bold; margin-top: 15px; }
+        .today-event { font-size: 1.4rem; color: #d32f2f; margin-top: 10px; font-weight: bold;}
+        .today-phool { font-size: 1.2rem; color: #555; font-style: italic; margin-top: 10px; }
 
         .search-box {
             width: 100%; padding: 15px 25px; font-family: 'Noto Nastaliq Urdu', serif;
@@ -74,10 +93,7 @@
             border-right: 5px solid var(--primary-green);
         }
         
-        /* جن دنوں میں خاص واقعہ ہو */
         .has-event { background: #f0fff6; border-right: 5px solid var(--gold); }
-        
-        /* جن دنوں میں واقعہ نہ ہو (ان میں مدنی پھول نظر آئے گا) */
         .empty-event { border-right: 5px solid #a8c9ba; opacity: 0.9; }
 
         .day-title {
@@ -93,14 +109,9 @@
         }
 
         .madani-phool { color: #666; font-size: 1rem; font-style: italic; text-align: center; margin-top: 10px; }
-
         .no-result { text-align: center; color: red; font-size: 1.3rem; display: none; padding: 20px; }
         .footer { text-align: center; padding: 20px; background: var(--primary-green); color: white; margin-top: 40px; }
 
-        @media (max-width: 768px) {
-            .days-container { grid-template-columns: 1fr; }
-            .header h1 { font-size: 1.8rem; }
-        }
     </style>
 </head>
 <body>
@@ -111,6 +122,13 @@
     </div>
 
     <div class="container">
+        
+        <!-- آج کا دن (لائیو پاکستان کے مطابق) -->
+        <div id="todayHighlight" class="today-highlight">
+            <div id="todayDateStr" class="today-date">تاریخ لوڈ ہو رہی ہے... (انٹرنیٹ درکار ہے)</div>
+            <div id="todayEventsBox"></div>
+        </div>
+
         <input type="text" id="searchInput" class="search-box" placeholder="تلاش کریں... (نام یا تاریخ لکھیں)">
         <div id="noResult" class="no-result">تلاش کے مطابق کوئی واقعہ نہیں ملا!</div>
         <div id="calendarApp"></div>
@@ -121,121 +139,69 @@
     </div>
 
     <script>
-        // ---------------------------------------------------------
-        // وسیع ترین ڈیٹا بیس (اس میں سینکڑوں تاریخیں شامل کر دی گئی ہیں)
-        // ---------------------------------------------------------
         const islamicEvents = [
             // محرم الحرام
             { month: "محرم الحرام", day: 1, event: "یوم شہادت خلیفہ دوم امیر المؤمنین سیدنا عمر فاروق اعظم رضی اللہ عنہ" },
-            { month: "محرم الحرام", day: 1, event: "ولادت با سعادت سیدنا امام حسین رضی اللہ عنہ (بعض روایات)" },
             { month: "محرم الحرام", day: 2, event: "سیدنا امام حسین رضی اللہ عنہ کی کربلا میں آمد" },
-            { month: "محرم الحرام", day: 3, event: "اہل بیت اطہار پر پانی بند کر دیا گیا" },
-            { month: "محرم الحرام", day: 4, event: "یوم وصال سیدہ فاطمہ بنت اسد رضی اللہ عنہا (والدہ حضرت علی)" },
             { month: "محرم الحرام", day: 5, event: "عرس بابا فرید الدین مسعود گنج شکر رحمۃ اللہ علیہ" },
-            { month: "محرم الحرام", day: 9, event: "یومِ تاسوعا (نویں محرم)" },
             { month: "محرم الحرام", day: 10, event: "یوم عاشورہ / یوم شہادت سیدنا امام حسین و شہدائے کربلا" },
-            { month: "محرم الحرام", day: 10, event: "حضرت آدم علیہ السلام کی توبہ قبول ہوئی، طوفان نوح تھما" },
-            { month: "محرم الحرام", day: 11, event: "عرس حضرت خواجہ سری سقطی رحمۃ اللہ علیہ" },
-            { month: "محرم الحرام", day: 16, event: "عرس سیدنا قطب الدین بختیار کاکی رحمۃ اللہ علیہ" },
-            { month: "محرم الحرام", day: 18, event: "یوم وصال سیدنا امام زین العابدین رحمۃ اللہ علیہ (ایک قول)" },
-            { month: "محرم الحرام", day: 20, event: "عرس شاہ عبداللطیف بھٹائی رحمۃ اللہ علیہ" },
-            { month: "محرم الحرام", day: 25, event: "یوم وصال سیدنا امام زین العابدین رحمۃ اللہ علیہ (مشہور قول)" },
+            { month: "محرم الحرام", day: 25, event: "یوم وصال سیدنا امام زین العابدین رحمۃ اللہ علیہ" },
 
             // صفر المظفر
-            { month: "صفر المظفر", day: 1, event: "اسیرانِ کربلا کا دربارِ یزید میں داخلہ" },
-            { month: "صفر المظفر", day: 2, event: "یوم وصال حضرت زید بن حارثہ رضی اللہ عنہ" },
             { month: "صفر المظفر", day: 7, event: "یوم شہادت سیدنا امام حسن مجتبیٰ رضی اللہ عنہ" },
             { month: "صفر المظفر", day: 13, event: "یوم وصال امام ربانی، مجدد الف ثانی رحمۃ اللہ علیہ" },
-            { month: "صفر المظفر", day: 18, event: "یوم وصال حضرت اویس قرنی رضی اللہ عنہ" },
             { month: "صفر المظفر", day: 20, event: "چہلم سیدنا امام حسین رضی اللہ عنہ / عرس داتا گنج بخش رحمۃ اللہ علیہ" },
-            { month: "صفر المظفر", day: 24, event: "عرس محمود غزنوی رحمۃ اللہ علیہ" },
             { month: "صفر المظفر", day: 25, event: "عرس اعلیٰ حضرت، امام احمد رضا خان فاضلِ بریلوی رحمۃ اللہ علیہ" },
-            { month: "صفر المظفر", day: 27, event: "یومِ وصال سلطان صلاح الدین ایوبی رحمۃ اللہ علیہ" },
 
             // ربیع الاول
             { month: "ربیع الاول", day: 1, event: "حضور ﷺ کی ہجرتِ مدینہ کا آغاز" },
-            { month: "ربیع الاول", day: 8, event: "یوم وصال سیدنا امام حسن عسکری رحمۃ اللہ علیہ" },
             { month: "ربیع الاول", day: 11, event: "عرس مولانا رضا علی خان رحمۃ اللہ علیہ (دادا جانِ اعلیٰ حضرت)" },
             { month: "ربیع الاول", day: 12, event: "جشنِ عید میلاد النبی ﷺ / ولادت با سعادت حضور سید عالم ﷺ" },
-            { month: "ربیع الاول", day: 12, event: "یوم وصال حضور پرنور ﷺ (مشہور قول)" },
-            { month: "ربیع الاول", day: 14, event: "یوم وصال حضرت ابو موسیٰ اشعری رضی اللہ عنہ" },
-            { month: "ربیع الاول", day: 18, event: "یوم وصال سیدہ ام کلثوم بنتِ علی رضی اللہ عنہا" },
-            { month: "ربیع الاول", day: 22, event: "یوم وصال طارق بن زیاد رحمۃ اللہ علیہ" },
 
             // ربیع الثانی
-            { month: "ربیع الثانی", day: 1, event: "عرس خواجہ بہاؤالدین نقشبند رحمۃ اللہ علیہ" },
             { month: "ربیع الثانی", day: 11, event: "گیارہویں شریف / یوم وصال غوث الاعظم، سیدنا شیخ عبدالقادر جیلانی رحمۃ اللہ علیہ" },
-            { month: "ربیع الثانی", day: 15, event: "عرس امام غزالی رحمۃ اللہ علیہ" },
-            { month: "ربیع الثانی", day: 22, event: "عرس سید شاہ آلِ محمد مارہروی رحمۃ اللہ علیہ" },
 
             // جمادی الاول
             { month: "جمادی الاول", day: 5, event: "ولادت با سعادت سیدہ زینب بنت علی رضی اللہ عنہا" },
-            { month: "جمادی الاول", day: 14, event: "یوم وصال امام غزالی رحمۃ اللہ علیہ (بعض روایات)" },
-            { month: "جمادی الاول", day: 17, event: "عرس سید الشہداء حضرت امیر حمزہ رضی اللہ عنہ" },
 
             // جمادی الثانی
             { month: "جمادی الثانی", day: 3, event: "یوم وصال خاتونِ جنت سیدہ فاطمۃ الزہرا رضی اللہ عنہا" },
-            { month: "جمادی الثانی", day: 15, event: "عرس سید شاہ برکت اللہ مارہروی رحمۃ اللہ علیہ" },
             { month: "جمادی الثانی", day: 22, event: "یوم وصال خلیفہ اول امیر المؤمنین سیدنا ابوبکر صدیق رضی اللہ عنہ" },
 
             // رجب المرجب
-            { month: "رجب المرجب", day: 1, event: "ولادت سیدنا امام محمد باقر رحمۃ اللہ علیہ" },
-            { month: "رجب المرجب", day: 4, event: "یوم وصال حضرت امام شافعی رحمۃ اللہ علیہ" },
-            { month: "رجب المرجب", day: 6, event: "چھٹی شریف / عرس خواجہ غریب نواز، سید معین الدین چشتی اجمیری رحمۃ اللہ علیہ" },
-            { month: "رجب المرجب", day: 10, event: "ولادت سیدنا امام محمد تقی رحمۃ اللہ علیہ" },
-            { month: "رجب المرجب", day: 13, event: "ولادت خلیفہ چہارم امیر المؤمنین سیدنا علی المرتضیٰ کرم اللہ وجہہ (خانہ کعبہ میں)" },
-            { month: "رجب المرجب", day: 15, event: "یوم وصال سیدنا امام جعفر صادق رضی اللہ عنہ (ایک قول)" },
-            { month: "رجب المرجب", day: 22, event: "کونڈوں کی نیاز / فاتحہ سیدنا امام جعفر صادق رضی اللہ عنہ" },
+            { month: "رجب المرجب", day: 6, event: "چھٹی شریف / عرس خواجہ غریب نواز رحمۃ اللہ علیہ" },
+            { month: "رجب المرجب", day: 13, event: "ولادت خلیفہ چہارم امیر المؤمنین سیدنا علی المرتضیٰ کرم اللہ وجہہ" },
             { month: "رجب المرجب", day: 27, event: "شبِ معراج النبی ﷺ" },
 
             // شعبان المعظم
-            { month: "شعبان المعظم", day: 3, event: "ولادت با سعادت سیدنا امام حسین رضی اللہ عنہ (مشہور قول)" },
-            { month: "شعبان المعظم", day: 5, event: "ولادت سیدنا امام زین العابدین رحمۃ اللہ علیہ" },
             { month: "شعبان المعظم", day: 15, event: "شبِ براءت / مغفرت کی رات" },
-            { month: "شعبان المعظم", day: 15, event: "قبلہ کی تبدیلی کا حکم نازل ہوا (تحویلِ قبلہ)" },
 
             // رمضان المبارک
             { month: "رمضان المبارک", day: 1, event: "غارِ حرا میں پہلی وحی کا نزول" },
-            { month: "رمضان المبارک", day: 3, event: "صحفِ ابراہیم علیہ السلام کا نزول" },
             { month: "رمضان المبارک", day: 10, event: "یوم وصال ام المؤمنین سیدہ خدیجۃ الکبریٰ رضی اللہ عنہا" },
-            { month: "رمضان المبارک", day: 15, event: "ولادت سیدنا امام حسن مجتبیٰ رضی اللہ عنہ" },
             { month: "رمضان المبارک", day: 17, event: "یومِ غزوہ بدر (یوم الفرقان)" },
-            { month: "رمضان المبارک", day: 17, event: "یوم وصال ام المؤمنین سیدہ عائشہ صدیقہ رضی اللہ عنہا" },
-            { month: "رمضان المبارک", day: 20, event: "فتح مکہ کا عظیم دن" },
             { month: "رمضان المبارک", day: 21, event: "یوم شہادت امیر المؤمنین سیدنا علی المرتضیٰ کرم اللہ وجہہ الکریم" },
             { month: "رمضان المبارک", day: 27, event: "لیلۃ القدر / شبِ قدر (عام مشاہدہ)" },
 
             // شوال المکرم
             { month: "شوال المکرم", day: 1, event: "عید الفطر کا مبارک دن" },
-            { month: "شوال المکرم", day: 9, event: "یوم وصال امام بخاری رحمۃ اللہ علیہ" },
-            { month: "شوال المکرم", day: 15, event: "یومِ غزوہ احد و شہادت سیدنا امیر حمزہ رضی اللہ عنہ" },
-            { month: "شوال المکرم", day: 22, event: "عرس میاں محمد بخش رحمۃ اللہ علیہ (صاحبِ سیف الملوک)" },
 
             // ذو القعدہ الحرام
-            { month: "ذو القعدہ", day: 1, event: "صلح حدیبیہ کا واقعہ" },
             { month: "ذو القعدہ", day: 14, event: "عرس استاذِ زمن علامہ حسن رضا خان رحمۃ اللہ علیہ" },
-            { month: "ذو القعدہ", day: 25, event: "ولادت حضرت ابراہیم اور حضرت عیسیٰ علیہما السلام" },
-            { month: "ذو القعدہ", day: 29, event: "یوم وصال حضرت سیدنا امام محمد تقی رحمۃ اللہ علیہ" },
 
             // ذو الحجہ الحرام
-            { month: "ذو الحجہ", day: 1, event: "نکاح سیدہ فاطمۃ الزہرا اور حضرت علی المرتضیٰ" },
-            { month: "ذو الحجہ", day: 7, event: "یوم وصال امام محمد باقر رحمۃ اللہ علیہ" },
-            { month: "ذو الحجہ", day: 9, event: "یومِ عرفہ (حج کا دن) / تکمیلِ دین کی آیت کا نزول" },
+            { month: "ذو الحجہ", day: 9, event: "یومِ عرفہ (حج کا دن)" },
             { month: "ذو الحجہ", day: 10, event: "عید الاضحیٰ / قربانی حضرت اسماعیل علیہ السلام کی یاد" },
             { month: "ذو الحجہ", day: 18, event: "یوم شہادت خلیفہ سوم امیر المؤمنین سیدنا عثمان غنی رضی اللہ عنہ" },
             { month: "ذو الحجہ", day: 26, event: "امیر المؤمنین سیدنا عمر فاروق اعظم رضی اللہ عنہ کے زخمی ہونے کا دن" }
         ];
 
-        // یہ وہ مدنی پھول ہیں جو خالی دنوں میں آٹو میٹک نظر آئیں گے
         const madaniPhool = [
             "آج کے دن درودِ پاک کی کثرت کریں، اللّٰہ کرم فرمائے گا۔",
             "دعوتِ اسلامی کے ہفتہ وار اجتماع میں شرکت کی نیت کریں۔",
             "آج کوئی ایک نئی سنت سیکھنے اور عمل کرنے کی کوشش کریں۔",
             "اپنے والدین کے لیے مغفرت کی دعا کریں۔",
-            "صدقہ خیرات کریں، بے شک صدقہ بلاؤں کو ٹالتا ہے۔",
-            "آج کم از کم ایک پارہ تلاوتِ قرآنِ پاک کا اہتمام کریں۔",
-            "مدنی چینل دیکھیں اور علمِ دین حاصل کریں۔",
-            "نیک لوگوں کی صحبت اختیار کریں، یہ دل کی دوا ہے۔"
+            "صدقہ خیرات کریں، بے شک صدقہ بلاؤں کو ٹالتا ہے۔"
         ];
 
         const monthsOrder = [
@@ -244,10 +210,52 @@
             "رمضان المبارک", "شوال المکرم", "ذو القعدہ", "ذو الحجہ"
         ];
 
-        const appContainer = document.getElementById('calendarApp');
-        const searchInput = document.getElementById('searchInput');
+        // اسلامی مہینوں کے نام نمبر کے حساب سے
+        const urduMonthsByNumber = [
+            "", // 0 خالی ہے
+            "محرم الحرام", "صفر المظفر", "ربیع الاول", "ربیع الثانی", 
+            "جمادی الاول", "جمادی الثانی", "رجب المرجب", "شعبان المعظم", 
+            "رمضان المبارک", "شوال المکرم", "ذو القعدہ", "ذو الحجہ"
+        ];
+
+        // لائیو API کے ذریعے پاکستان (کراچی) کی بالکل درست اسلامی تاریخ نکالنا
+        function showTodayHighlightLive() {
+            // یہ API خاص پاکستان کے لیے ہے
+            fetch('https://api.aladhan.com/v1/timingsByCity?city=Karachi&country=Pakistan&method=1')
+                .then(response => response.json())
+                .then(data => {
+                    let hijri = data.data.date.hijri;
+                    let hDay = parseInt(hijri.day);
+                    let hMonthNumber = parseInt(hijri.month.number);
+                    
+                    // نمبر سے اردو مہینے کا نام نکالیں (یہاں کوئی غلطی نہیں ہوگی)
+                    let exactMonth = urduMonthsByNumber[hMonthNumber];
+
+                    document.getElementById('todayDateStr').innerText = `${hDay} ${exactMonth}`;
+
+                    // چیک کریں کہ کیا اس تاریخ میں کوئی واقعہ ہے؟
+                    const todayEvents = islamicEvents.filter(e => e.month === exactMonth && e.day === hDay);
+                    let eventHtml = '';
+
+                    if(todayEvents.length > 0) {
+                        todayEvents.forEach(e => {
+                            eventHtml += `<div class="today-event">٭ ${e.event}</div>`;
+                        });
+                    } else {
+                        const randomPhool = madaniPhool[Math.floor(Math.random() * madaniPhool.length)];
+                        eventHtml = `<div class="today-phool">" ${randomPhool} "</div>`;
+                    }
+
+                    document.getElementById('todayEventsBox').innerHTML = eventHtml;
+                })
+                .catch(error => {
+                    document.getElementById('todayDateStr').innerText = "تاریخ لوڈ کرنے کے لیے انٹرنیٹ آن کریں";
+                    document.getElementById('todayEventsBox').innerHTML = "";
+                });
+        }
 
         function renderFullCalendar() {
+            const appContainer = document.getElementById('calendarApp');
             appContainer.innerHTML = ''; 
 
             monthsOrder.forEach(month => {
@@ -261,27 +269,21 @@
                 const daysContainer = document.createElement('div');
                 daysContainer.className = 'days-container';
 
-                // ہر مہینے کے پورے 30 دن جنریٹ ہوں گے
                 for (let day = 1; day <= 30; day++) {
                     const eventsForThisDay = islamicEvents.filter(e => e.month === month && e.day === day);
                     const dayCard = document.createElement('div');
                     
                     if (eventsForThisDay.length > 0) {
-                        // اگر اس دن واقعہ موجود ہے
                         dayCard.className = 'day-card has-event';
                         let listHtml = '<ul class="event-list">';
                         eventsForThisDay.forEach(e => { listHtml += `<li>${e.event}</li>`; });
                         listHtml += '</ul>';
-
                         dayCard.innerHTML = `<div class="day-title">${day} ${month}</div>${listHtml}`;
                     } else {
-                        // **یہاں جادو ہے!** اگر واقعہ نہیں ہے، تو خالی چھوڑنے کے بجائے مدنی پھول آئے گا۔
                         const randomPhool = madaniPhool[Math.floor(Math.random() * madaniPhool.length)];
                         dayCard.className = 'day-card empty-event';
-                        dayCard.innerHTML = `
-                            <div class="day-title" style="color:#777;">${day} ${month}</div>
-                            <div class="madani-phool">"${randomPhool}"</div>
-                        `;
+                        dayCard.innerHTML = `<div class="day-title" style="color:#777;">${day} ${month}</div>
+                                             <div class="madani-phool">"${randomPhool}"</div>`;
                     }
                     daysContainer.appendChild(dayCard);
                 }
@@ -300,7 +302,7 @@
             });
         }
 
-        searchInput.addEventListener('keyup', function() {
+        document.getElementById('searchInput').addEventListener('keyup', function() {
             const filter = this.value.toLowerCase();
             const monthBoxes = document.querySelectorAll('.month-box');
             let overallMatch = false;
@@ -333,7 +335,10 @@
             document.getElementById('noResult').style.display = (!overallMatch && filter !== "") ? "block" : "none";
         });
 
-        window.onload = renderFullCalendar;
+        window.onload = function() {
+            showTodayHighlightLive(); // لائیو پاکستان کی تاریخ کے لیے
+            renderFullCalendar(); // باقی کیلنڈر کے لیے
+        };
     </script>
 </body>
 </html>
